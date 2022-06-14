@@ -1,0 +1,108 @@
+<html>
+
+<head>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script type="application/javascript" src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
+    <script type="application/javascript" src="./js/easyTable.js"></script>
+    <script src="./abi/LiquidityPool.js"></script>
+    <script src="./abi/LiquidityManager.js"></script>
+</head>
+
+<body>
+    <h4>AssetInfos</h4>
+    <div x-data="data()">
+        <div>
+            <button @click="loadAssetInfos()" x-bind:disabled="isLoading">loadAssetInfos ↺</button>
+            <button @click="loadDexSpotConfigs()" x-bind:disabled="isLoading">loadDexSpotConfigs ↺</button>
+        </div>
+        <template x-for="log in logs">
+            <div x-html="log">
+            </div>
+        </template>
+        <script>
+            const configs = [
+                {
+                    name: "arb testnet",
+                    liquidityPool: "0xa182610BE93374c31548D516631152bDAc2F79aA",
+                    liquidityManager: "0x7dC949b805C6A99e7050B8bf539e506a7ED1Cf1D",
+                    providerUrl: "https://rinkeby.arbitrum.io/rpc",
+                },
+                {
+                    name: "fantom testnet",
+                    liquidityPool: "0x19b306373e29A9d41c761B2373E8968E9b72EddF",
+                    liquidityManager: "0x20949c9267Cc5Fc82D043000ddf4faB53a45848d",
+                    providerUrl: "https://rpc.testnet.fantom.network/",
+                },
+                {
+                    name: "avalanche testnet",
+                    liquidityPool: "0x3cEAD888989FD07F51EBD05755056a72e02BA01b",
+                    liquidityManager: "0xd2F45b8027eF2fC4b71a74eB9cA024540d50E888",
+                    providerUrl: "https://api.avax-test.network/ext/bc/C/rpc",
+                },
+                {
+                    name: "bsc testnet",
+                    liquidityPool: "0xd037289cd24c328d53D6115cff63Ed6414F57a6A",
+                    liquidityManager: "0xDbAc3F97cDEf3B6b9D4A66CEDd57333c50876d04",
+                    providerUrl: "https://data-seed-prebsc-1-s1.binance.org:8545/",
+                },
+            ]
+            function data() {
+                return {
+                    logs: [],
+                    isLoading: false,
+                    logPrint(text, link) {
+                        this.logs.push("<pre>" + text + (typeof link == 'undefined' ? "" : ` <a href="${link}">goto➚</a>`) + "</pre>")
+                    },
+                    formatNamedResult(data, translators = {}) {
+                        var data = data.map(x => Object.entries(x).filter(y => isNaN(y[0])))
+                        var Table = window.easyTable
+                        var t = new Table
+                        data.forEach(function (entry) {
+                            for (var i = 0; i < entry.length; i++) {
+                                if (translators[entry[i][0]] != undefined) {
+                                    t.cell(entry[i][0], translators[entry[i][0]](entry[i][1]))
+                                } else {
+                                    t.cell(entry[i][0], entry[i][1])
+                                }
+                            }
+                            t.newRow()
+                        })
+                        return t.toString()
+                    },
+                    async getAllAssetInfo(address, providerUrl) {
+                        const provider = new ethers.providers.JsonRpcProvider(providerUrl)
+                        const contract = new ethers.Contract(address, LiquidityPoolAbi, provider)
+                        return contract.callStatic.getAllAssetInfo()
+                    },
+                    async getAllDexSpotConfiguration(address, providerUrl) {
+                        const provider = new ethers.providers.JsonRpcProvider(providerUrl)
+                        const contract = new ethers.Contract(address, LiquidityManagerAbi, provider)
+                        return contract.callStatic.getAllDexSpotConfiguration()
+                    },
+                    async loadAssetInfos() {
+                        this.isLoading = true
+                        const result = await Promise.all(configs.map(x => this.getAllAssetInfo(x.liquidityPool, x.providerUrl)))
+                        console.log(result)
+                        for (var i = 0; i < configs.length; i++) {
+                            this.logPrint(`[${configs[i].name}]`)
+                            this.logPrint(this.formatNamedResult(result[i], { symbol: ethers.utils.parseBytes32String }))
+                        }
+                        this.isLoading = false
+                    },
+                    async loadDexSpotConfigs() {
+                        this.isLoading = true
+                        const result = await Promise.all(configs.map(x => this.getAllDexSpotConfiguration(x.liquidityManager, x.providerUrl)))
+                        console.log(result)
+                        for (var i = 0; i < configs.length; i++) {
+                            this.logPrint(`[${configs[i].name}]`)
+                            this.logPrint(this.formatNamedResult(result[i]))
+                        }
+                        this.isLoading = false
+                    },
+                }
+            }
+        </script>
+    </div>
+</body>
+
+</html>
